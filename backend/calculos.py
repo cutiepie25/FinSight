@@ -174,24 +174,34 @@ def generar_tabla_amortizacion(
     # Convertir tasa de porcentaje a decimal
     tasa_decimal = tasa / 100
     
-    # Paso 1: Convertir a tasa efectiva si es nominal
+    # Paso 1: Convertir a tasa efectiva anual
     if tipo_tasa == "nominal":
-        # Determinar m según frecuencia de capitalización
-        m_map = {"mensual": 12, "trimestral": 4, "semestral": 2, "anual": 1}
+        # Si es nominal, convertir a efectiva anual
+        m_map = {
+            "mensual": 12, 
+            "bimestral": 6, 
+            "trimestral": 4, 
+            "cuatrimestral": 3, 
+            "semestral": 2, 
+            "anual": 1
+        }
         m = m_map.get(frecuencia_tasa, 12)
         tasa_efectiva_anual = convertir_nominal_a_efectiva(tasa_decimal, m)
     else:
-        tasa_efectiva_anual = tasa_decimal
+        # Si es efectiva, verificar su frecuencia y convertir a anual si es necesario
+        if frecuencia_tasa == "anual":
+            tasa_efectiva_anual = tasa_decimal
+        else:
+            # Convertir de la frecuencia dada a anual
+            tasa_efectiva_anual = convertir_tasa_efectiva(tasa_decimal, frecuencia_tasa, "anual")
     
     # Paso 2: Convertir de anticipada a vencida si es necesario
     if tipo_pago == "anticipada":
         tasa_efectiva_anual = convertir_anticipada_a_vencida(tasa_efectiva_anual)
     
-    # Paso 3: Convertir a la frecuencia de pago
-    if frecuencia_tasa == "anual":
-        tasa_periodo = convertir_tasa_efectiva(tasa_efectiva_anual, "anual", frecuencia_pago)
-    else:
-        tasa_periodo = convertir_tasa_efectiva(tasa_efectiva_anual, frecuencia_tasa, frecuencia_pago)
+    # Paso 3: Convertir de anual a la frecuencia de pago
+    # En este punto siempre tenemos una tasa efectiva anual vencida
+    tasa_periodo = convertir_tasa_efectiva(tasa_efectiva_anual, "anual", frecuencia_pago)
     
     # Calcular número de periodos según frecuencia
     meses_por_periodo = FRECUENCIAS[frecuencia_pago]

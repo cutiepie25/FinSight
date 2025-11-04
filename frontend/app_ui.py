@@ -59,6 +59,8 @@ if 'parametros_actuales' not in st.session_state:
     st.session_state.parametros_actuales = None
 if 'ahorro_actual' not in st.session_state:
     st.session_state.ahorro_actual = None
+if 'necesita_recalcular' not in st.session_state:
+    st.session_state.necesita_recalcular = False
 
 
 def verificar_backend():
@@ -121,6 +123,30 @@ with st.sidebar:
             help="Modalidad de pago"
         )
     
+    # Frecuencia de la tasa (ANTES del plazo, según requerimiento)
+    if tipo_tasa == "nominal":
+        # Mapeo de etiquetas a valores internos
+        opciones_nominal = {
+            "Año mes": "mensual",
+            "Año bimestre": "bimestral",
+            "Año trimestre": "trimestral",
+            "Año cuatrimestre": "cuatrimestral",
+            "Año semestre": "semestral"
+        }
+        
+        frecuencia_label = st.selectbox(
+            "Frecuencia de la Tasa Nominal",
+            list(opciones_nominal.keys()),
+            help="Frecuencia de capitalización de la tasa nominal"
+        )
+        frecuencia_tasa = opciones_nominal[frecuencia_label]
+    else:
+        frecuencia_tasa = st.selectbox(
+            "Frecuencia de la Tasa Efectiva",
+            ["anual", "mensual", "trimestral", "semestral"],
+            help="Frecuencia de la tasa efectiva"
+        )
+    
     plazo_meses = st.number_input(
         "Plazo (meses)",
         min_value=1,
@@ -134,12 +160,6 @@ with st.sidebar:
         "Frecuencia de Pago",
         ["mensual", "quincenal", "trimestral", "semestral", "anual"],
         help="Frecuencia de los pagos"
-    )
-    
-    frecuencia_tasa = st.selectbox(
-        "Frecuencia de la Tasa",
-        ["anual", "mensual", "trimestral", "semestral"],
-        help="Frecuencia de capitalización de la tasa"
     )
     
     fecha_inicio = st.date_input(
@@ -180,7 +200,73 @@ with st.sidebar:
         )
     
     elif tipo_abono == "Abonos específicos":
-        st.info("Agregue abonos específicos después de calcular la tabla inicial")
+        st.subheader("Agregar Abonos Específicos")
+        
+        # Inicializar lista de abonos en session_state si no existe
+        if 'abonos_especificos' not in st.session_state:
+            st.session_state.abonos_especificos = []
+        
+        col1, col2, col3 = st.columns([2, 2, 1])
+        
+        with col1:
+            periodo_abono = st.number_input(
+                "Periodo del Abono",
+                min_value=1,
+                max_value=int(plazo_meses / (1 if frecuencia_pago == "mensual" else 
+                                            0.5 if frecuencia_pago == "quincenal" else
+                                            3 if frecuencia_pago == "trimestral" else
+                                            6 if frecuencia_pago == "semestral" else 12)),
+                value=1,
+                step=1,
+                help="Periodo en el que se hará el abono"
+            )
+        
+        with col2:
+            monto_abono_especifico = st.number_input(
+                "Monto del Abono ($)",
+                min_value=0.0,
+                max_value=float(monto),
+                value=1000.0,
+                step=100.0,
+                help="Monto del abono extraordinario"
+            )
+        
+        with col3:
+            st.write("")
+            st.write("")
+            if st.button("➕ Agregar", use_container_width=True):
+                # Verificar que no exista ya un abono en ese periodo
+                periodos_existentes = [a['periodo'] for a in st.session_state.abonos_especificos]
+                if periodo_abono in periodos_existentes:
+                    st.error(f"Ya existe un abono en el periodo {periodo_abono}")
+                else:
+                    st.session_state.abonos_especificos.append({
+                        'periodo': periodo_abono,
+                        'monto': monto_abono_especifico
+                    })
+                    st.success(f"Abono agregado: Periodo {periodo_abono} - ${monto_abono_especifico:,.2f}")
+                    
+                    # Recalcular automáticamente si ya existe una tabla calculada
+                    if st.session_state.tabla_actual is not None and st.session_state.parametros_actuales is not None:
+                        st.session_state.necesita_recalcular = True
+                        st.rerun()
+        
+        # Mostrar lista de abonos agregados
+        if st.session_state.abonos_especificos:
+            st.write("**Abonos Agregados:**")
+            abonos_df = pd.DataFrame(st.session_state.abonos_especificos)
+            abonos_df = abonos_df.sort_values('periodo')
+            abonos_df['monto'] = abonos_df['monto'].apply(lambda x: f"${x:,.2f}")
+            st.dataframe(abonos_df, use_container_width=True, hide_index=True)
+            
+            if st.button("🗑️ Limpiar Todos los Abonos", type="secondary"):
+                st.session_state.abonos_especificos = []
+                # Recalcular automáticamente si ya existe una tabla calculada
+                if st.session_state.tabla_actual is not None and st.session_state.parametros_actuales is not None:
+                    st.session_state.necesita_recalcular = True
+                st.rerun()
+        else:
+            st.info("No hay abonos agregados. Use el formulario arriba para agregar abonos.")
     
     if tipo_abono != "Sin abonos":
         opcion_recalculo = st.radio(
@@ -199,7 +285,12 @@ with st.sidebar:
 
 
 # Área principal
-if calcular_btn:
+# Ejecutar cálculo si se presionó el botón O si necesita recalcular automáticamente
+if calcular_btn or st.session_state.necesita_recalcular:
+    # Resetear bandera de recálculo
+    if st.session_state.necesita_recalcular:
+        st.session_state.necesita_recalcular = False
+    
     with st.spinner("Calculando tabla de amortización..."):
         try:
             # Preparar parámetros
@@ -231,12 +322,34 @@ if calcular_btn:
                 response = requests.post(f"{BACKEND_URL}/calcular-con-abonos-programados", json=payload)
             
             else:  # Abonos específicos
-                response = requests.post(f"{BACKEND_URL}/calcular", json=parametros)
+                if st.session_state.abonos_especificos:
+                    # Convertir abonos a formato esperado por el backend
+                    abonos_list = [
+                        {"periodo": a["periodo"], "monto": a["monto"]} 
+                        for a in st.session_state.abonos_especificos
+                    ]
+                    payload = {
+                        "parametros_credito": parametros,
+                        "abonos": abonos_list,
+                        "opcion_recalculo": opcion_recalculo
+                    }
+                    response = requests.post(f"{BACKEND_URL}/calcular-con-abonos", json=payload)
+                else:
+                    # Si no hay abonos específicos, calcular tabla normal
+                    response = requests.post(f"{BACKEND_URL}/calcular", json=parametros)
             
             if response.status_code == 200:
                 data = response.json()
                 st.session_state.tabla_actual = pd.DataFrame(data["tabla"])
                 st.session_state.resumen_actual = data["resumen"]
+                
+                # Guardar tasas efectivas si están disponibles
+                if "tasa_efectiva_anual" in data:
+                    st.session_state.tasa_efectiva_anual = data["tasa_efectiva_anual"]
+                    st.session_state.tasa_efectiva_periodo = data["tasa_efectiva_periodo"]
+                else:
+                    st.session_state.tasa_efectiva_anual = None
+                    st.session_state.tasa_efectiva_periodo = None
                 
                 if "ahorro" in data:
                     st.session_state.ahorro_actual = data["ahorro"]
@@ -253,6 +366,30 @@ if calcular_btn:
 
 # Mostrar resultados si existen
 if st.session_state.tabla_actual is not None:
+    
+    # Mostrar tasas efectivas convertidas (antes de la tabla)
+    if hasattr(st.session_state, 'tasa_efectiva_anual') and st.session_state.tasa_efectiva_anual is not None:
+        st.markdown("---")
+        st.subheader("📊 Tasas Efectivas Calculadas")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.info(f"""
+            **Tasa Efectiva Anual:** {st.session_state.tasa_efectiva_anual:.4f}%
+            
+            Esta es la tasa efectiva anual después de convertir desde la tasa {st.session_state.parametros_actuales['tipo_tasa']} 
+            y ajustar por el tipo de pago {st.session_state.parametros_actuales['tipo_pago']}.
+            """)
+        
+        with col2:
+            st.info(f"""
+            **Tasa Efectiva por Periodo ({st.session_state.parametros_actuales['frecuencia_pago']}):** {st.session_state.tasa_efectiva_periodo:.4f}%
+            
+            Esta es la tasa que se aplica en cada periodo de pago para calcular los intereses.
+            """)
+        
+        st.markdown("---")
     
     # Tabs para organizar la información
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Resumen", "📋 Tabla Completa", "📈 Gráficos", "💾 Exportar"])

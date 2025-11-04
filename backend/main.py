@@ -105,6 +105,44 @@ async def calcular_amortizacion(params: ParametrosCredito):
         if not es_valido:
             raise HTTPException(status_code=400, detail=mensaje)
         
+        # Calcular tasa efectiva para mostrar al usuario
+        from backend.calculos import convertir_nominal_a_efectiva, convertir_anticipada_a_vencida
+        
+        tasa_decimal = params.tasa / 100
+        
+        # Paso 1: Convertir a tasa efectiva anual
+        if params.tipo_tasa == "nominal":
+            # Si es nominal, convertir a efectiva anual
+            m_map = {
+                "mensual": 12, 
+                "bimestral": 6, 
+                "trimestral": 4, 
+                "cuatrimestral": 3, 
+                "semestral": 2, 
+                "anual": 1
+            }
+            m = m_map.get(params.frecuencia_tasa, 12)
+            tasa_efectiva_anual = convertir_nominal_a_efectiva(tasa_decimal, m)
+        else:
+            # Si es efectiva, verificar su frecuencia y convertir a anual si es necesario
+            if params.frecuencia_tasa == "anual":
+                tasa_efectiva_anual = tasa_decimal
+            else:
+                # Convertir de la frecuencia dada a anual
+                tasa_efectiva_anual = convertir_tasa_efectiva(tasa_decimal, params.frecuencia_tasa, "anual")
+        
+        # Paso 2: Convertir de anticipada a vencida si es necesario
+        if params.tipo_pago == "anticipada":
+            tasa_efectiva_anual = convertir_anticipada_a_vencida(tasa_efectiva_anual)
+        
+        # Paso 3: Convertir de anual a la frecuencia de pago
+        # En este punto siempre tenemos una tasa efectiva anual vencida
+        tasa_periodo = convertir_tasa_efectiva(
+            tasa_efectiva_anual,
+            "anual",
+            params.frecuencia_pago
+        )
+        
         # Generar tabla
         tabla = generar_tabla_amortizacion(
             monto=params.monto,
@@ -123,12 +161,13 @@ async def calcular_amortizacion(params: ParametrosCredito):
         return {
             "tabla": tabla.to_dict(orient="records"),
             "resumen": resumen,
+            "tasa_efectiva_anual": round(tasa_efectiva_anual * 100, 4),
+            "tasa_efectiva_periodo": round(tasa_periodo * 100, 4),
             "mensaje": "Tabla generada exitosamente"
         }
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al calcular: {str(e)}")
-
 
 @app.post("/calcular-con-abonos")
 async def calcular_con_abonos(params: ParametrosConAbonos):
@@ -174,25 +213,41 @@ async def calcular_con_abonos(params: ParametrosConAbonos):
         # Convertir abonos a lista de diccionarios
         abonos_list = [{"periodo": a.periodo, "monto": a.monto} for a in params.abonos]
         
-        # Calcular tasa por periodo
+        # Calcular tasa efectiva para mostrar al usuario
+        from backend.calculos import convertir_nominal_a_efectiva, convertir_anticipada_a_vencida
+        
         tasa_decimal = params.parametros_credito.tasa / 100
         
-        # Convertir tasa según tipo
+        # Paso 1: Convertir a tasa efectiva anual
         if params.parametros_credito.tipo_tasa == "nominal":
-            from backend.calculos import convertir_nominal_a_efectiva
-            m_map = {"mensual": 12, "trimestral": 4, "semestral": 2, "anual": 1}
+            # Si es nominal, convertir a efectiva anual
+            m_map = {
+                "mensual": 12, 
+                "bimestral": 6, 
+                "trimestral": 4, 
+                "cuatrimestral": 3, 
+                "semestral": 2, 
+                "anual": 1
+            }
             m = m_map.get(params.parametros_credito.frecuencia_tasa, 12)
-            tasa_efectiva = convertir_nominal_a_efectiva(tasa_decimal, m)
+            tasa_efectiva_anual = convertir_nominal_a_efectiva(tasa_decimal, m)
         else:
-            tasa_efectiva = tasa_decimal
+            # Si es efectiva, verificar su frecuencia y convertir a anual si es necesario
+            if params.parametros_credito.frecuencia_tasa == "anual":
+                tasa_efectiva_anual = tasa_decimal
+            else:
+                # Convertir de la frecuencia dada a anual
+                tasa_efectiva_anual = convertir_tasa_efectiva(tasa_decimal, params.parametros_credito.frecuencia_tasa, "anual")
         
+        # Paso 2: Convertir de anticipada a vencida si es necesario
         if params.parametros_credito.tipo_pago == "anticipada":
-            from backend.calculos import convertir_anticipada_a_vencida
-            tasa_efectiva = convertir_anticipada_a_vencida(tasa_efectiva)
+            tasa_efectiva_anual = convertir_anticipada_a_vencida(tasa_efectiva_anual)
         
+        # Paso 3: Convertir de anual a la frecuencia de pago
+        # En este punto siempre tenemos una tasa efectiva anual vencida
         tasa_periodo = convertir_tasa_efectiva(
-            tasa_efectiva,
-            params.parametros_credito.frecuencia_tasa,
+            tasa_efectiva_anual,
+            "anual",
             params.parametros_credito.frecuencia_pago
         )
         
@@ -224,6 +279,8 @@ async def calcular_con_abonos(params: ParametrosConAbonos):
             "tabla": tabla_con_abonos.to_dict(orient="records"),
             "resumen": resumen,
             "ahorro": ahorro,
+            "tasa_efectiva_anual": round(tasa_efectiva_anual * 100, 4),
+            "tasa_efectiva_periodo": round(tasa_periodo * 100, 4),
             "mensaje": "Tabla con abonos generada exitosamente"
         }
     
@@ -275,24 +332,41 @@ async def calcular_con_abonos_programados(params: AbonosProgramados):
             n_periodos
         )
         
-        # Calcular tasa por periodo
+        # Calcular tasa efectiva para mostrar al usuario
+        from backend.calculos import convertir_nominal_a_efectiva, convertir_anticipada_a_vencida
+        
         tasa_decimal = params.parametros_credito.tasa / 100
         
+        # Paso 1: Convertir a tasa efectiva anual
         if params.parametros_credito.tipo_tasa == "nominal":
-            from backend.calculos import convertir_nominal_a_efectiva
-            m_map = {"mensual": 12, "trimestral": 4, "semestral": 2, "anual": 1}
+            # Si es nominal, convertir a efectiva anual
+            m_map = {
+                "mensual": 12, 
+                "bimestral": 6, 
+                "trimestral": 4, 
+                "cuatrimestral": 3, 
+                "semestral": 2, 
+                "anual": 1
+            }
             m = m_map.get(params.parametros_credito.frecuencia_tasa, 12)
-            tasa_efectiva = convertir_nominal_a_efectiva(tasa_decimal, m)
+            tasa_efectiva_anual = convertir_nominal_a_efectiva(tasa_decimal, m)
         else:
-            tasa_efectiva = tasa_decimal
+            # Si es efectiva, verificar su frecuencia y convertir a anual si es necesario
+            if params.parametros_credito.frecuencia_tasa == "anual":
+                tasa_efectiva_anual = tasa_decimal
+            else:
+                # Convertir de la frecuencia dada a anual
+                tasa_efectiva_anual = convertir_tasa_efectiva(tasa_decimal, params.parametros_credito.frecuencia_tasa, "anual")
         
+        # Paso 2: Convertir de anticipada a vencida si es necesario
         if params.parametros_credito.tipo_pago == "anticipada":
-            from backend.calculos import convertir_anticipada_a_vencida
-            tasa_efectiva = convertir_anticipada_a_vencida(tasa_efectiva)
+            tasa_efectiva_anual = convertir_anticipada_a_vencida(tasa_efectiva_anual)
         
+        # Paso 3: Convertir de anual a la frecuencia de pago
+        # En este punto siempre tenemos una tasa efectiva anual vencida
         tasa_periodo = convertir_tasa_efectiva(
-            tasa_efectiva,
-            params.parametros_credito.frecuencia_tasa,
+            tasa_efectiva_anual,
+            "anual",
             params.parametros_credito.frecuencia_pago
         )
         
@@ -325,6 +399,8 @@ async def calcular_con_abonos_programados(params: AbonosProgramados):
             "resumen": resumen,
             "ahorro": ahorro,
             "abonos_programados": [{"periodo": a["periodo"], "monto": a["monto"]} for a in abonos_list],
+            "tasa_efectiva_anual": round(tasa_efectiva_anual * 100, 4),
+            "tasa_efectiva_periodo": round(tasa_periodo * 100, 4),
             "mensaje": "Tabla con abonos programados generada exitosamente"
         }
     
