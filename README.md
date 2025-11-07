@@ -26,7 +26,7 @@ Sistema completo de cálculo de tablas de amortización usando el **Método Fran
 
 **Opción A: Clonar desde Git**
 ```bash
-git clone <URL_DEL_REPOSITORIO>
+git clone https://github.com/cutiepie25/FinSight.git
 cd FinSight
 ```
 
