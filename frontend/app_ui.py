@@ -516,39 +516,6 @@ if st.session_state.tabla_actual is not None:
             height=500
         )
         
-        # Opción para agregar abono ad-hoc
-        if tipo_abono == "Abonos específicos":
-            st.markdown("---")
-            st.subheader("➕ Agregar Abono Ad-hoc")
-            
-            col1, col2, col3 = st.columns([2, 2, 1])
-            
-            with col1:
-                periodo_abono = st.number_input(
-                    "Periodo del Abono",
-                    min_value=1,
-                    max_value=len(st.session_state.tabla_actual),
-                    value=1,
-                    help="Periodo en el que se hará el abono"
-                )
-            
-            with col2:
-                monto_abono_adhoc = st.number_input(
-                    "Monto del Abono ($)",
-                    min_value=100.0,
-                    max_value=float(monto),
-                    value=1000.0,
-                    step=100.0,
-                    help="Monto del abono extraordinario"
-                )
-            
-            with col3:
-                st.write("")  # Espaciador
-                st.write("")  # Espaciador
-                agregar_abono_btn = st.button("➕ Agregar", type="secondary")
-            
-            if agregar_abono_btn:
-                st.info("Funcionalidad de abono ad-hoc: Recalcule con 'Abonos específicos' y configure los periodos manualmente")
     
     with tab3:
         st.header("Visualizaciones")

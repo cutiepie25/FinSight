@@ -18,15 +18,30 @@ Sistema completo de cálculo de tablas de amortización usando el **Método Fran
 ### Requisitos Previos
 - Python 3.8 o superior
 - pip (gestor de paquetes de Python)
+- Git (opcional, para clonar el repositorio)
 
 ### Pasos de Instalación
 
-1. **Navegar al directorio del proyecto**
+#### 1. Obtener el Proyecto
+
+**Opción A: Clonar desde Git**
 ```bash
-cd /home/maria/SEMESTRE_2025_20/FInanciera/FinSight
+git clone <URL_DEL_REPOSITORIO>
+cd FinSight
 ```
 
-2. **Crear un entorno virtual (RECOMENDADO)**
+**Opción B: Descargar el código**
+- Descarga el proyecto y extráelo
+- Navega al directorio del proyecto:
+```bash
+cd FinSight
+```
+
+#### 2. Crear un Entorno Virtual (RECOMENDADO)
+
+Un entorno virtual mantiene las dependencias del proyecto aisladas.
+
+**En Linux/Mac:**
 ```bash
 # Crear entorno virtual
 python3 -m venv venv
@@ -35,24 +50,42 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-3. **Instalar dependencias**
+**En Windows:**
+```bash
+# Crear entorno virtual
+python -m venv venv
+
+# Activar el entorno virtual
+venv\Scripts\activate
+```
+
+#### 3. Instalar Dependencias
+
+Con el entorno virtual activado, instala las dependencias necesarias:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-**Nota**: Si `pip` no funciona, intente con `pip3`:
+**Notas:**
+- Si `pip` no funciona, intenta con `pip3`: `pip3 install -r requirements.txt`
+- En algunos sistemas Linux puede necesitar: `python3 -m pip install -r requirements.txt`
+- Si encuentras errores, asegúrate de que pip esté actualizado: `pip install --upgrade pip`
+
+#### 4. Verificar la Instalación
+
+Para verificar que todo está funcionando correctamente, prueba iniciar el backend:
+
 ```bash
-pip3 install -r requirements.txt
+python -m uvicorn backend.main:app --reload
 ```
 
-### Verificación de Instalación
-
-Para verificar que todo se instaló correctamente:
-```bash
-python3 test_sistema.py
+Si ves un mensaje similar a:
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
 
-Debería ver un mensaje de "✅ TODAS LAS PRUEBAS COMPLETADAS EXITOSAMENTE".
+¡La instalación fue exitosa! Presiona `CTRL+C` para detener el servidor.
 
 ## 🎯 Uso
 
@@ -60,33 +93,53 @@ Debería ver un mensaje de "✅ TODAS LAS PRUEBAS COMPLETADAS EXITOSAMENTE".
 
 **IMPORTANTE**: Asegúrese de tener el entorno virtual activado antes de ejecutar.
 
-En una terminal, ejecute:
-
+**En Linux/Mac:**
 ```bash
-# Si está usando entorno virtual, activarlo primero:
+# Activar entorno virtual (si no está activado)
 source venv/bin/activate
 
 # Iniciar el backend
-python3 -m uvicorn backend.main:app --reload
+python -m uvicorn backend.main:app --reload
+```
+
+**En Windows:**
+```bash
+# Activar entorno virtual (si no está activado)
+venv\Scripts\activate
+
+# Iniciar el backend
+python -m uvicorn backend.main:app --reload
 ```
 
 El backend estará disponible en: `http://localhost:8000`
 
-Para ver la documentación interactiva de la API: `http://localhost:8000/docs`
+**Documentación interactiva de la API**: `http://localhost:8000/docs`
 
 ### 2. Iniciar el Frontend (Interfaz de Usuario)
 
 En **otra terminal** (mantenga el backend corriendo), ejecute:
 
+**En Linux/Mac:**
 ```bash
-# Si está usando entorno virtual, activarlo primero:
+# Activar entorno virtual (si no está activado)
 source venv/bin/activate
 
 # Iniciar el frontend
-python3 -m streamlit run frontend/app_ui.py
+python -m streamlit run frontend/app_ui.py
+```
+
+**En Windows:**
+```bash
+# Activar entorno virtual (si no está activado)
+venv\Scripts\activate
+
+# Iniciar el frontend
+python -m streamlit run frontend/app_ui.py
 ```
 
 La interfaz se abrirá automáticamente en su navegador en: `http://localhost:8501`
+
+**Nota**: En algunos sistemas puede necesitar usar `python3` en lugar de `python`.
 
 ### 3. Usar la Aplicación
 
@@ -94,6 +147,18 @@ La interfaz se abrirá automáticamente en su navegador en: `http://localhost:85
 2. Seleccione el tipo de abonos (sin abonos, programados o específicos)
 3. Presione "Calcular Amortización"
 4. Explore los resultados en las pestañas: Resumen, Tabla, Gráficos y Exportar
+
+### 4. Detener la Aplicación
+
+Para detener los servidores:
+- Presiona `CTRL+C` en cada terminal donde estén corriendo el backend y frontend
+
+**Para desactivar el entorno virtual:**
+```bash
+deactivate
+```
+
+Esto te devuelve al entorno Python del sistema. La próxima vez que uses FinSight, recuerda activar nuevamente el entorno virtual antes de iniciar los servidores.
 
 ## 📐 Fórmulas Matemáticas
 
@@ -497,12 +562,32 @@ FinSight/
 ## 🐛 Solución de Problemas
 
 ### El backend no inicia
-```bash
-# Verificar que el puerto 8000 no esté en uso
-lsof -i :8000
 
-# Instalar dependencias faltantes
+**Verificar que el puerto 8000 no esté en uso:**
+
+*En Linux/Mac:*
+```bash
+lsof -i :8000
+# Si el puerto está en uso, terminar el proceso:
+kill -9 <PID>
+```
+
+*En Windows:*
+```bash
+netstat -ano | findstr :8000
+# Si el puerto está en uso, terminar el proceso:
+taskkill /PID <PID> /F
+```
+
+**Reinstalar dependencias:**
+```bash
 pip install -r requirements.txt
+```
+
+**Verificar versión de Python:**
+```bash
+python --version
+# Debe ser Python 3.8 o superior
 ```
 
 ### El frontend no se conecta al backend
