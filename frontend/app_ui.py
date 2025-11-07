@@ -8,6 +8,7 @@ import pandas as pd
 import requests
 import plotly.graph_objects as go
 from datetime import datetime, date
+import matplotlib.pyplot as plt
 import io
 
 # Configuración de la página
@@ -555,65 +556,43 @@ if st.session_state.tabla_actual is not None:
         tabla = st.session_state.tabla_actual
         
         # Gráfico 1: Composición de la cuota (Interés vs Capital)
-        st.subheader("📊 Composición de la Cuota")
-        
-        fig1 = go.Figure()
-        
-        fig1.add_trace(go.Bar(
-            x=tabla["Periodo"],
-            y=tabla["Abono_Capital"],
-            name="Abono a Capital",
-            marker_color="#4CAF50"
-        ))
-        
-        fig1.add_trace(go.Bar(
-            x=tabla["Periodo"],
-            y=tabla["Interes"],
-            name="Interés",
-            marker_color="#FF9800"
-        ))
-        
-        if tabla["Abono_Extra"].sum() > 0:
-            fig1.add_trace(go.Bar(
-                x=tabla["Periodo"],
-                y=tabla["Abono_Extra"],
-                name="Abono Extra",
-                marker_color="#2196F3"
-            ))
-        
-        fig1.update_layout(
-            barmode='stack',
-            xaxis_title="Periodo",
-            yaxis_title="Monto ($)",
-            hovermode='x unified',
-            height=400
-        )
-        
-        st.plotly_chart(fig1, use_container_width=True)
-        
-        # Gráfico 2: Evolución del saldo
-        st.subheader("📉 Evolución del Saldo")
-        
-        fig2 = go.Figure()
-        
-        fig2.add_trace(go.Scatter(
-            x=tabla["Periodo"],
-            y=tabla["Saldo"],
-            mode='lines+markers',
-            name="Saldo Pendiente",
-            line=dict(color="#1f77b4", width=3),
-            marker=dict(size=6)
-        ))
-        
-        fig2.update_layout(
-            xaxis_title="Periodo",
-            yaxis_title="Saldo ($)",
-            hovermode='x unified',
-            height=400
-        )
-        
-        st.plotly_chart(fig2, use_container_width=True)
-        
+        #st.subheader("📊 Composición de la Cuota")
+
+        tabla = st.session_state.tabla_actual
+
+        # Crear figura y ejes
+        fig, ax1 = plt.subplots(figsize=(12, 6))
+
+        # Barras apiladas: interés y abono capital
+        ax1.bar(tabla["Periodo"], tabla["Interes"], bottom=tabla["Abono_Capital"],
+                color="#FF9800", width=0.6, label="Interés")
+        ax1.bar(tabla["Periodo"], tabla["Abono_Capital"],
+                color="#4CAF50", width=0.6, label="Abono al Capital")
+
+        # Eje secundario: saldo pendiente
+        ax2 = ax1.twinx()
+        ax2.plot(tabla["Periodo"], tabla["Saldo"],
+                color="black", linewidth=2.5, label="Saldo Pendiente")
+
+        # Etiquetas y títulos
+        ax1.set_xlabel("Período")
+        ax1.set_ylabel("Cuota ($)")
+        ax2.set_ylabel("Saldo Pendiente ($)")
+        fig.suptitle("Amortización con Abonos Trimestrales y Recalculo de Cuota", fontsize=14)
+
+        # Cuadrícula
+        ax1.grid(True, linestyle="--", alpha=0.4)
+
+        # Combinar leyendas
+        handles1, labels1 = ax1.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(handles1 + handles2, labels1 + labels2, loc="upper right")
+
+        plt.tight_layout()
+
+        # Mostrar en Streamlit
+        st.pyplot(fig)
+                
         # Gráfico 3: Distribución de pagos
         st.subheader("🥧 Distribución de Pagos")
         
